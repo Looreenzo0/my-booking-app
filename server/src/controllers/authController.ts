@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import User, { IUser } from "../models/User";
+import Role from "../models/Role";
 import jwt, { SignOptions } from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const generateToken = (user: IUser) => {
   const secret = process.env.JWT_SECRET;
@@ -10,10 +12,16 @@ const generateToken = (user: IUser) => {
     throw new Error("JWT_SECRET is not defined");
   }
 
-  const payload = { id: user._id, role: user.role };
+  const payload = {
+    id: user._id,
+    role:
+      user.role instanceof mongoose.Types.ObjectId
+        ? user.role
+        : (user.role as any)._id,
+  };
 
   const options: SignOptions = {
-    expiresIn: expiresIn as SignOptions["expiresIn"], // ✅ Casting fixes TS error
+    expiresIn: expiresIn as SignOptions["expiresIn"],
   };
 
   return jwt.sign(payload, secret, options);
@@ -25,7 +33,9 @@ export const getAllUsers = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const users = await User.find().select("-password"); // Exclude password field
+    const users = await User.find()
+      .select("-password")
+      .populate("role", "name");
     res.status(200).json({
       message: "Users fetched successfully",
       users,
@@ -41,7 +51,7 @@ export const register = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { username, email, password, name, role } = req.body;
+    const { username, email, password, name, role: roleName } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -49,7 +59,19 @@ export const register = async (
       return;
     }
 
-    const user = new User({ username, email, password, name, role });
+    const role = await Role.findOne({ name: roleName || "user" });
+    if (!role) {
+      res.status(400).json({ message: "Invalid role" });
+      return;
+    }
+
+    const user = new User({
+      username,
+      email,
+      password,
+      name,
+      role: role._id,
+    });
     await user.save();
 
     const token = generateToken(user);
@@ -61,12 +83,12 @@ export const register = async (
         username: user.username,
         email: user.email,
         name: user.name,
-        role: user.role,
+        role: role.name,
       },
       token,
     });
   } catch (error) {
-    next(error); // Pass the error to Express error handler
+    next(error);
   }
 };
 
@@ -78,7 +100,7 @@ export const login = async (
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).populate("role", "name");
     if (!user) {
       res.status(401).json({ message: "Invalid credentials" });
       return;
@@ -98,7 +120,8 @@ export const login = async (
         id: user._id,
         username: user.username,
         email: user.email,
-        role: user.role,
+        name: user.name,
+        role: (user.role as any).name,
       },
       token,
     });

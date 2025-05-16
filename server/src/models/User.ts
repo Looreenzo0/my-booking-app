@@ -1,12 +1,14 @@
-import mongoose, { Schema, Document } from "mongoose";
+// models/User.ts
+import mongoose, { Schema, Document, Types } from "mongoose";
 import bcrypt from "bcrypt";
+import { IRole } from "./Role";
 
 export interface IUser extends Document {
   username: string;
   email: string;
   password: string;
   name: string;
-  role: "user" | "admin";
+  role: Types.ObjectId | IRole;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -22,12 +24,15 @@ const UserSchema: Schema<IUser> = new Schema(
     },
     password: { type: String, required: true },
     name: { type: String, required: true },
-    role: { type: String, enum: ["user", "admin"], default: "user" },
+    role: {
+      type: Schema.Types.ObjectId,
+      ref: "Role",
+      required: true,
+    },
   },
   { timestamps: true }
 );
 
-// Hash password before saving
 UserSchema.pre<IUser>("save", async function (next) {
   if (!this.isModified("password")) return next();
 
@@ -36,7 +41,6 @@ UserSchema.pre<IUser>("save", async function (next) {
   next();
 });
 
-// Method to compare password
 UserSchema.methods.comparePassword = async function (
   candidatePassword: string
 ): Promise<boolean> {
