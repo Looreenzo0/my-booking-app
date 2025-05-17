@@ -14,7 +14,7 @@ export const registerSchema = z.object({
     .string({ required_error: "Name is required" })
     .min(1, { message: "Name must be at least 1 character long" }),
   role: z
-    .enum(["user", "admin"], {
+    .enum(["user", "manager", "admin"], {
       invalid_type_error: "Role must be either 'user' or 'admin'",
     })
     .optional(),

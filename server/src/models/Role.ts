@@ -1,9 +1,5 @@
-import mongoose, { Schema, Document } from "mongoose";
-
-export interface IRole extends Document {
-  name: string;
-  description?: string;
-}
+import mongoose, { Schema } from "mongoose";
+import { IRole } from "../interfaces/auth";
 
 const RoleSchema: Schema<IRole> = new Schema(
   {

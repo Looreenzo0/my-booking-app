@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { ZodSchema, ZodError } from "zod";
-import { AppError } from "../utils/AppError";
+import { AppError } from "../utils/appError";
 
 /**
  * Middleware to validate request body against a Zod schema.

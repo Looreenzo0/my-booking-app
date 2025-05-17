@@ -1,18 +1,9 @@
-// models/User.ts
-import mongoose, { Schema, Document, Types } from "mongoose";
+import mongoose, { Schema, Types, Model } from "mongoose";
 import bcrypt from "bcrypt";
-import { IRole } from "./Role";
+import { IUser } from "../interfaces/auth";
 
-export interface IUser extends Document {
-  username: string;
-  email: string;
-  password: string;
-  name: string;
-  role: Types.ObjectId | IRole;
-  comparePassword(candidatePassword: string): Promise<boolean>;
-}
-
-const UserSchema: Schema<IUser> = new Schema(
+// Define schema separately
+const UserSchema = new Schema<IUser>(
   {
     username: { type: String, required: true, unique: true, trim: true },
     email: {
@@ -33,18 +24,21 @@ const UserSchema: Schema<IUser> = new Schema(
   { timestamps: true }
 );
 
+// Pre-save hook to hash password
 UserSchema.pre<IUser>("save", async function (next) {
   if (!this.isModified("password")) return next();
-
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
+// Method for password comparison
 UserSchema.methods.comparePassword = async function (
   candidatePassword: string
 ): Promise<boolean> {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-export default mongoose.model<IUser>("User", UserSchema);
+// Create model
+const UserModel: Model<IUser> = mongoose.model<IUser>("User", UserSchema);
+export default UserModel;

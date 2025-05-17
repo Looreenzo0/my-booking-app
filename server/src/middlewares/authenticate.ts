@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt, { JwtPayload as DefaultJwtPayload } from "jsonwebtoken";
-import { AppError } from "../utils/AppError";
-
+import { AppError } from "../utils/appError";
 interface JwtPayload extends DefaultJwtPayload {
   id: string;
   role: string;

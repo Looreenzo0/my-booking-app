@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import authRoutes from "./routes/authRoutes";
+import roomRoutes from "./routes/roomRoutes";
+import bookingRoutes from "./routes/bookingRoute";
 import dotenv from "dotenv";
 import { errorHandler } from "./utils/errorHandler";
 
@@ -18,7 +20,10 @@ app.use(
 );
 app.use(express.json());
 
+// ROUTES
 app.use("/api/auth", authRoutes);
+app.use("/api/room", roomRoutes);
+app.use("/api/booking", bookingRoutes);
 
 app.get("/", (req, res) => {
   res.send("API is running...");
