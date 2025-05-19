@@ -33,7 +33,7 @@ const bookingSchema = new Schema<IBooking>(
       required: false,
       default: null,
     },
-    room: { type: Schema.Types.ObjectId, ref: "Room", required: true },
+    room: [{ type: Schema.Types.ObjectId, ref: "Room", required: true }],
     guest: { type: guestSchema, required: true },
     checkInDate: { type: Date, required: true },
     checkOutDate: { type: Date, required: true },

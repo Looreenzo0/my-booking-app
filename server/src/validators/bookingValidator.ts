@@ -51,7 +51,7 @@ const PaymentSchema = z.object({
 
 // Booking Schema
 export const BookingSchema = z.object({
-  room: z.string().min(1, "Room ID is required"),
+  room: z.array(z.string()).nonempty("At least one room is required"),
   guest: GuestSchema,
   checkInDate: ZDateFromString,
   checkOutDate: ZDateFromString,

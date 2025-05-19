@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import { IRoom, RoomType } from "../interfaces/Room";
+import { IRoom, RoomType } from "../interfaces/room";
 
 const amenitySchema = new Schema({
   name: { type: String, required: true },

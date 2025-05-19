@@ -1,5 +1,5 @@
 import { Document, Types } from "mongoose";
-import { IRoom } from "./Room";
+import { IRoom } from "./room";
 
 export type BookingStatus =
   | "pending"
@@ -35,7 +35,7 @@ export interface IGuest {
 
 export interface IBooking extends Document {
   user?: Types.ObjectId;
-  room: IRoom["_id"];
+  room: Types.ObjectId[];
   guest: IGuest;
   checkInDate: Date;
   checkOutDate: Date;

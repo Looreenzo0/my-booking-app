@@ -1,4 +1,4 @@
-import { FilterQuery, QueryOptions } from "mongoose";
+import { Types, QueryOptions } from "mongoose";
 import { findRoomById } from "./roomService";
 import ApiFeatures from "../utils/apiFeatures";
 import Booking from "../models/Booking";
@@ -42,15 +42,20 @@ import { BadRequestError, NotFoundError, AppError } from "../utils/appError";
 // };
 
 export const createBooking = async (input: Partial<IBooking>) => {
-  // Validate and find room
-  const room = await findRoomById(input.room as string);
-  if (!room) throw new NotFoundError("Room not found");
+  const roomInput = input.room as (string | Types.ObjectId)[];
+  if (!Array.isArray(roomInput) || roomInput.length === 0) {
+    throw new AppError("At least one room must be selected", 400);
+  }
+
+  // Convert all to ObjectId
+  const roomIds: Types.ObjectId[] = roomInput.map((id) =>
+    typeof id === "string" ? new Types.ObjectId(id) : id
+  );
 
   // Convert dates
   const checkInDate = new Date(input.checkInDate!);
   const checkOutDate = new Date(input.checkOutDate!);
 
-  // Validate dates
   if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
     throw new AppError("Invalid check-in or check-out date", 400);
   }
@@ -63,18 +68,27 @@ export const createBooking = async (input: Partial<IBooking>) => {
     throw new AppError("Check-out date must be after check-in date", 400);
   }
 
-  const totalAmount = room.rates.basePrice * totalNights;
+  // Fetch and validate rooms
+  const rooms = await Promise.all(
+    roomIds.map((id) => findRoomById(id.toString()))
+  );
+  if (rooms.some((r) => !r)) {
+    throw new NotFoundError("One or more rooms not found");
+  }
 
-  // Prepare booking data with optional user field
+  const totalAmount = rooms.reduce((sum, room) => {
+    return sum + room!.rates.basePrice * totalNights;
+  }, 0);
+
   const bookingData: Partial<IBooking> = {
     ...input,
+    room: roomIds,
     checkInDate,
     checkOutDate,
     totalNights,
     totalAmount,
   };
 
-  // You can add default payment if none provided (optional)
   if (!bookingData.payment) {
     bookingData.payment = {
       amount: totalAmount,
@@ -84,9 +98,7 @@ export const createBooking = async (input: Partial<IBooking>) => {
     };
   }
 
-  // Create booking in DB
   const booking = await Booking.create(bookingData);
-
   return booking;
 };
 
@@ -129,9 +141,145 @@ export const updateBooking = async (
   input: Partial<IBooking>,
   options: QueryOptions = { new: true, runValidators: true }
 ) => {
-  const booking = await Booking.findByIdAndUpdate(id, input, options).populate(
-    "room"
-  );
+  const updateData: Partial<IBooking> = { ...input };
+
+  // If rooms are updated, validate and convert
+  if (input.room) {
+    const roomInput = input.room as (string | Types.ObjectId)[];
+    if (!Array.isArray(roomInput) || roomInput.length === 0) {
+      throw new AppError("At least one room must be selected", 400);
+    }
+
+    const roomIds: Types.ObjectId[] = roomInput.map((id) =>
+      typeof id === "string" ? new Types.ObjectId(id) : id
+    );
+
+    // Validate rooms exist
+    const rooms = await Promise.all(
+      roomIds.map((id) => findRoomById(id.toString()))
+    );
+    if (rooms.some((r) => !r)) {
+      throw new NotFoundError("One or more rooms not found");
+    }
+
+    updateData.room = roomIds;
+
+    // Recalculate totalAmount if dates are present or will be updated
+    let checkInDate = input.checkInDate
+      ? new Date(input.checkInDate)
+      : undefined;
+    let checkOutDate = input.checkOutDate
+      ? new Date(input.checkOutDate)
+      : undefined;
+
+    // If dates are not provided in input, fetch current booking to get dates
+    if (!checkInDate || !checkOutDate) {
+      const existingBooking = await Booking.findById(id);
+      if (!existingBooking) throw new NotFoundError("Booking not found");
+
+      checkInDate = checkInDate || existingBooking.checkInDate;
+      checkOutDate = checkOutDate || existingBooking.checkOutDate;
+    }
+
+    if (
+      isNaN(checkInDate.getTime()) ||
+      isNaN(checkOutDate.getTime()) ||
+      checkOutDate <= checkInDate
+    ) {
+      throw new AppError(
+        "Invalid or inconsistent check-in/check-out dates",
+        400
+      );
+    }
+
+    const totalNights = Math.ceil(
+      (checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 3600 * 24)
+    );
+
+    updateData.checkInDate = checkInDate;
+    updateData.checkOutDate = checkOutDate;
+    updateData.totalNights = totalNights;
+
+    // Calculate totalAmount
+    const totalAmount = rooms.reduce((sum, room) => {
+      return sum + room!.rates.basePrice * totalNights;
+    }, 0);
+
+    updateData.totalAmount = totalAmount;
+
+    // Update payment if not provided
+    if (!input.payment) {
+      updateData.payment = {
+        amount: totalAmount,
+        currency: "USD",
+        method: "cash",
+        status: "pending",
+      };
+    }
+  } else {
+    // If no rooms update but dates are updated, recalc totalNights and totalAmount
+    let checkInDate = input.checkInDate
+      ? new Date(input.checkInDate)
+      : undefined;
+    let checkOutDate = input.checkOutDate
+      ? new Date(input.checkOutDate)
+      : undefined;
+
+    if (checkInDate || checkOutDate) {
+      // Fetch current booking to get other date if missing and room ids
+      const existingBooking = await Booking.findById(id);
+      if (!existingBooking) throw new NotFoundError("Booking not found");
+
+      checkInDate = checkInDate || existingBooking.checkInDate;
+      checkOutDate = checkOutDate || existingBooking.checkOutDate;
+
+      if (
+        isNaN(checkInDate.getTime()) ||
+        isNaN(checkOutDate.getTime()) ||
+        checkOutDate <= checkInDate
+      ) {
+        throw new AppError(
+          "Invalid or inconsistent check-in/check-out dates",
+          400
+        );
+      }
+
+      const totalNights = Math.ceil(
+        (checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 3600 * 24)
+      );
+
+      updateData.checkInDate = checkInDate;
+      updateData.checkOutDate = checkOutDate;
+      updateData.totalNights = totalNights;
+
+      // Fetch rooms from existing booking to calculate totalAmount
+      const rooms = await Promise.all(
+        existingBooking.room.map((id) => findRoomById(id.toString()))
+      );
+
+      const totalAmount = rooms.reduce((sum, room) => {
+        return sum + room!.rates.basePrice * totalNights;
+      }, 0);
+
+      updateData.totalAmount = totalAmount;
+
+      // Update payment if not provided
+      if (!input.payment) {
+        updateData.payment = {
+          amount: totalAmount,
+          currency: "USD",
+          method: "cash",
+          status: "pending",
+        };
+      }
+    }
+  }
+
+  const booking = await Booking.findByIdAndUpdate(
+    id,
+    updateData,
+    options
+  ).populate("room");
   if (!booking) throw new NotFoundError("Booking not found");
   return booking;
 };

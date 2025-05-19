@@ -24,7 +24,7 @@ export const createBookingHandler = async (
     const booking = await createBooking(bookingInput);
 
     res.status(201).json({
-      status: "success",
+      status: "Booking created successfully",
       data: { booking },
     });
   } catch (err) {
@@ -40,7 +40,7 @@ export const getBookingHandler = async (
   try {
     const booking = await findBookingById(req.params.id);
     res.status(200).json({
-      status: "success",
+      status: "Booking fetched successfully",
       data: {
         booking,
       },
@@ -58,7 +58,7 @@ export const getAllBookingsHandler = async (
   try {
     const bookings = await findAllBookings(req.query);
     res.status(200).json({
-      status: "success",
+      status: "Bookings fetched successfully",
       results: bookings.length,
       data: {
         bookings,
@@ -77,7 +77,7 @@ export const updateBookingHandler = async (
   try {
     const booking = await updateBooking(req.params.id, req.body);
     res.status(200).json({
-      status: "success",
+      status: "Booking updated successfully",
       data: {
         booking,
       },
@@ -95,7 +95,7 @@ export const deleteBookingHandler = async (
   try {
     await deleteBooking(req.params.id);
     res.status(204).json({
-      status: "success",
+      status: "Booking deleted successfully",
       data: null,
     });
   } catch (err) {

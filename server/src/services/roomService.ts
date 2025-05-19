@@ -3,7 +3,7 @@ import ApiFeatures from "../utils/apiFeatures";
 import { AppError, NotFoundError } from "../utils/appError";
 import Booking from "../models/Booking";
 import Room from "../models/Room";
-import { IRoom } from "../interfaces/Room";
+import { IRoom } from "../interfaces/room";
 
 export const createRoom = async (input: Partial<IRoom>) => {
   const existingRoom = await Room.findOne({ name: input.name });
